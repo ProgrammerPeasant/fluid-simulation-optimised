@@ -1,10 +1,14 @@
 #include <bits/stdc++.h>
 
+#include <future>
+#include <mutex>
+#include <execution>
+
 using namespace std;
 
 constexpr size_t N = 36, M = 84;
 // constexpr size_t N = 14, M = 5;
-constexpr size_t T = 1'000'000;
+constexpr size_t T = 400;
 constexpr std::array<pair<int, int>, 4> deltas{{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}};
 
 // char field[N][M + 1] = {
@@ -142,9 +146,7 @@ struct VectorField {
     }
 
     Fixed &get(int x, int y, int dx, int dy) {
-        size_t i = ranges::find(deltas, pair(dx, dy)) - deltas.begin();
-        assert(i < deltas.size());
-        return v[x][y][i];
+        return v[x][y][((dy & 1) << 1) | (((dx & 1) & ((dx & 2) >> 1)) | ((dy & 1) & ((dy & 2) >> 1)))];
     }
 };
 
@@ -154,6 +156,45 @@ int UT = 0;
 
 
 mt19937 rnd(1337);
+
+
+mutex g_mtx;
+tuple<Fixed, bool, pair<int, int>> propagate_flow_singlethread(int x, int y, Fixed lim) {
+    last_use[x][y] = UT - 1;
+    Fixed ret = 0;
+    for (auto [dx, dy] : deltas) {
+        int nx = x + dx, ny = y + dy;
+        if (nx < 0 || nx >= N || ny < 0 || ny >= M) {
+            continue;
+        }
+        if (field[nx][ny] == '#') {
+            continue;
+        }
+        if (last_use[nx][ny] >= UT) {
+            continue;
+        }
+        auto cap = velocity.get(x, y, dx, dy);
+        auto flow = velocity_flow.get(x, y, dx, dy);
+        if (flow >= cap) {
+            continue;
+        }
+        auto vp = min(lim, cap - flow);
+        if (last_use[nx][ny] == UT - 1) {
+            velocity_flow.add(x, y, dx, dy, vp);
+            last_use[x][y] = UT;
+            return {vp, true, {nx, ny}};
+        }
+        auto [t, prop, endp] = propagate_flow_singlethread(nx, ny, vp);
+        ret += t;
+        if (prop) {
+            velocity_flow.add(x, y, dx, dy, t);
+            last_use[x][y] = UT;
+            return {t, prop && endp != pair<int,int>(x, y), endp};
+        }
+    }
+    last_use[x][y] = UT;
+    return {ret, false, {0, 0}};
+}
 
 tuple<Fixed, bool, pair<int, int>> propagate_flow(int x, int y, Fixed lim) {
     last_use[x][y] = UT - 1;
@@ -308,6 +349,11 @@ int main() {
     rho['.'] = 1000;
     Fixed g = 0.1;
 
+    std::ios::sync_with_stdio(false);
+    std::cin.tie(nullptr);
+
+    auto start = std::chrono::high_resolution_clock::now();
+
     for (size_t x = 0; x < N; ++x) {
         for (size_t y = 0; y < M; ++y) {
             if (field[x][y] == '#')
@@ -423,4 +469,14 @@ int main() {
             }
         }
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    // Вычисление разницы во времени
+    std::chrono::duration<double> elapsed_seconds = end - start;
+
+    // Вывод времени выполнения
+    std::cout << "Elapsed time: " << elapsed_seconds.count() << "s\n";
+
+    return 0;
 }
