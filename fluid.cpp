@@ -4,6 +4,8 @@
 #include <mutex>
 #include <execution>
 
+#include "ThreadPool.h"
+
 using namespace std;
 
 constexpr size_t N = 36, M = 84;
@@ -156,45 +158,6 @@ int UT = 0;
 
 
 mt19937 rnd(1337);
-
-
-mutex g_mtx;
-tuple<Fixed, bool, pair<int, int>> propagate_flow_singlethread(int x, int y, Fixed lim) {
-    last_use[x][y] = UT - 1;
-    Fixed ret = 0;
-    for (auto [dx, dy] : deltas) {
-        int nx = x + dx, ny = y + dy;
-        if (nx < 0 || nx >= N || ny < 0 || ny >= M) {
-            continue;
-        }
-        if (field[nx][ny] == '#') {
-            continue;
-        }
-        if (last_use[nx][ny] >= UT) {
-            continue;
-        }
-        auto cap = velocity.get(x, y, dx, dy);
-        auto flow = velocity_flow.get(x, y, dx, dy);
-        if (flow >= cap) {
-            continue;
-        }
-        auto vp = min(lim, cap - flow);
-        if (last_use[nx][ny] == UT - 1) {
-            velocity_flow.add(x, y, dx, dy, vp);
-            last_use[x][y] = UT;
-            return {vp, true, {nx, ny}};
-        }
-        auto [t, prop, endp] = propagate_flow_singlethread(nx, ny, vp);
-        ret += t;
-        if (prop) {
-            velocity_flow.add(x, y, dx, dy, t);
-            last_use[x][y] = UT;
-            return {t, prop && endp != pair<int,int>(x, y), endp};
-        }
-    }
-    last_use[x][y] = UT;
-    return {ret, false, {0, 0}};
-}
 
 tuple<Fixed, bool, pair<int, int>> propagate_flow(int x, int y, Fixed lim) {
     last_use[x][y] = UT - 1;
