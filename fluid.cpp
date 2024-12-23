@@ -10,7 +10,7 @@ using namespace std;
 
 constexpr size_t N = 36, M = 84;
 // constexpr size_t N = 14, M = 5;
-constexpr size_t T = 400;
+constexpr size_t T = 4000;
 constexpr std::array<pair<int, int>, 4> deltas{{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}};
 
 // char field[N][M + 1] = {
